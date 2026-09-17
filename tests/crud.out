@@ -1,0 +1,50 @@
+-- insert --
+rows 1
+rows 1
+-- select --
+columns id name score tags note
+id=int:1 name=text:ada score=decimal:99.50 tags=array:[text:x,text:y,z] note=null
+id=int:2 name=text:grace score=decimal:-0.001 tags=null note=null
+column types numeric text[]
+-- arrays round trip --
+count 2 first x second y,z
+-- update and delete --
+updated 1
+deleted 0
+-- prepared --
+same text, same handle true
+columns name
+name=text:ada
+name=text:grace
+cached 1
+-- errors from a real server --
+unique -> unique_violation sqlstate 23505 constraint 'beans_crud_name_key' retryable false
+not null -> not_null sqlstate 23502 constraint '' retryable false
+missing table -> undefined sqlstate 42P01 constraint '' retryable false
+syntax -> syntax sqlstate 42601 constraint '' retryable false
+division -> server sqlstate 22012 constraint '' retryable false
+-- transactions --
+inside 1
+after rollback 0
+after commit 1
+-- a closure transaction rolls back on a failure --
+failed with server
+doomed rows 0
+in a transaction false
+-- savepoints --
+sp rows 0
+-- pipelining --
+[0] columns ?column?
+?column?=int:1
+[1] columns text
+text=text:two
+[2] columns count
+count=int:3
+-- COPY --
+copied 1000
+count 1000
+sum 499500
+  0	row 0
+  1	row 1
+  2	row 2
+read 3 rows back

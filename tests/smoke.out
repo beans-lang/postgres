@@ -1,0 +1,13 @@
+connected true
+server is at least 15 true
+-- a scalar --
+int:2
+-- typed columns --
+columns ?column? int4 int8 float8 text numeric bytea text
+?column?=bool:true int4=int:42 int8=int:9223372036854775807 float8=float:1.5 text=text:hello numeric=decimal:12345.6789 bytea=bytes:00ff41 text=null
+-- parameters --
+columns n t b d
+n=int:7 t=text:param b=bool:false d=decimal:0.125
+-- a parameter is never SQL --
+'; drop table users; --
+closed

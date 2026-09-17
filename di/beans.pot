@@ -1,0 +1,9 @@
+module postgres_di
+kind library
+
+# barista lives here and nowhere else in this package, so a program with no
+# container never compiles one — and never pays std.reflect's registration
+# cost at the top of main either.
+require path ".."
+require github.com/beans-lang/dbcore v0.1.0
+require github.com/beans-lang/barista v0.1.1

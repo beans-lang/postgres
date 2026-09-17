@@ -1,0 +1,96 @@
+module postgres
+kind library
+
+# libpq, vendored as source and compiled by the toolchain — no prebuilt
+# binary, no make step for a consumer, no system libpq to install.
+#
+# 43 translation units, the set discovered by linking libpq's own
+# unconditional OBJS and resolving every undefined symbol against src/common
+# and src/port. vendor/VENDOR.md records how, and SKIPPED.md accounts for what
+# was left out.
+#
+# One row per file rather than a per-platform amalgamation: the set is
+# configure-decided, and a selector says which platform needs a file far more
+# plainly than an #if buried in a wrapper.
+require github.com/beans-lang/dbcore v0.1.0
+
+# -DFRONTEND is what makes these the client-side builds. The include path is
+# written relative to this package, which the toolchain resolves against the
+# package root — never against the directory the build was started in.
+cflags all -DFRONTEND
+cflags all -I vendor/postgresql/src/include
+cflags all -I vendor/postgresql/src/interfaces/libpq
+cflags all -I vendor/postgresql/src/port
+cflags all -I vendor/postgresql/src/common
+
+# Postgres compiles with -D_GNU_SOURCE on Linux, and its generated pg_config.h
+# records which `strerror_r` that gave it. Without the flag glibc hands back
+# the XSI variant and src/port/strerror.c does not compile at all.
+cflags linux -D_GNU_SOURCE
+
+# src/common/pg_prng.c carries a Gaussian generator libpq never calls, and the
+# whole object comes in with the symbols it needs. glibc keeps sin/log/sqrt in
+# libm; macOS and the BSDs serve them from libc.
+link linux library "m"
+
+# ---- libpq proper (src/interfaces/libpq) ----
+csrc all "vendor/postgresql/src/interfaces/libpq/fe-auth-scram.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/fe-cancel.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/fe-connect.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/fe-exec.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/fe-lobj.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/fe-misc.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/fe-print.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/fe-protocol3.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/fe-secure.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/fe-trace.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/legacy-pqsignal.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/libpq-events.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/pqexpbuffer.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/fe-auth.c"
+csrc all "vendor/postgresql/src/interfaces/libpq/fe-auth-oauth.c"
+
+# ---- src/common ----
+#
+# cryptohash.c / hmac.c / md5.c / sha1.c / sha2.c are postgres's OWN
+# implementations, which its Makefile selects when OpenSSL is absent. They
+# are why a TLS-free libpq still authenticates with scram-sha-256: OpenSSL
+# is needed for the transport, never for the handshake.
+csrc all "vendor/postgresql/src/common/base64.c"
+csrc all "vendor/postgresql/src/common/cryptohash.c"
+csrc all "vendor/postgresql/src/common/encnames.c"
+csrc all "vendor/postgresql/src/common/fe_memutils.c"
+csrc all "vendor/postgresql/src/common/hmac.c"
+csrc all "vendor/postgresql/src/common/ip.c"
+csrc all "vendor/postgresql/src/common/jsonapi.c"
+csrc all "vendor/postgresql/src/common/link-canary.c"
+csrc all "vendor/postgresql/src/common/md5_common.c"
+csrc all "vendor/postgresql/src/common/md5.c"
+csrc all "vendor/postgresql/src/common/pg_prng.c"
+csrc all "vendor/postgresql/src/common/psprintf.c"
+csrc all "vendor/postgresql/src/common/saslprep.c"
+csrc all "vendor/postgresql/src/common/scram-common.c"
+csrc all "vendor/postgresql/src/common/sha1.c"
+csrc all "vendor/postgresql/src/common/sha2.c"
+csrc all "vendor/postgresql/src/common/string.c"
+csrc all "vendor/postgresql/src/common/stringinfo.c"
+csrc all "vendor/postgresql/src/common/unicode_norm.c"
+csrc all "vendor/postgresql/src/common/wchar.c"
+
+# ---- src/port ----
+csrc all "vendor/postgresql/src/port/chklocale.c"
+csrc all "vendor/postgresql/src/port/inet_net_ntop.c"
+csrc all "vendor/postgresql/src/port/noblock.c"
+csrc all "vendor/postgresql/src/port/pg_strong_random.c"
+csrc all "vendor/postgresql/src/port/pgstrcasecmp.c"
+csrc all "vendor/postgresql/src/port/snprintf.c"
+csrc all "vendor/postgresql/src/port/strerror.c"
+
+# A LIBOBJS replacement: configure compiles it only where the libc has no
+# explicit_bzero. glibc has had it since 2.25 and musl has it; macOS does
+# not, so this is the one row with a selector.
+csrc macos "vendor/postgresql/src/port/explicit_bzero.c"
+
+# The other LIBOBJS replacement, the other way round: macOS and the BSDs have
+# getpeereid in libc, glibc and musl do not.
+csrc linux "vendor/postgresql/src/port/getpeereid.c"

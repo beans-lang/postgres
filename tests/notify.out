@@ -1,0 +1,16 @@
+-- listen --
+-- notify --
+  beans_events first from another backend true
+  beans_events second from another backend true
+  other elsewhere from another backend true
+-- a quiet channel times out rather than hanging --
+  none, as expected
+  waited about 400 ms true
+-- unlisten --
+  other still listening
+-- a notification can arrive while a query runs --
+  query answered 42
+  and 1 notification was waiting behind it
+  beans_events during
+-- a fiber can wait on a notification --
+  beans_events late
