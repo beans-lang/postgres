@@ -4,7 +4,7 @@ kind library
 # libpq, vendored as source and compiled by the toolchain — no prebuilt
 # binary, no make step for a consumer, no system libpq to install.
 #
-# 43 translation units, the set discovered by linking libpq's own
+# 44 translation units, the set discovered by linking libpq's own
 # unconditional OBJS and resolving every undefined symbol against src/common
 # and src/port. vendor/VENDOR.md records how, and SKIPPED.md accounts for what
 # was left out.
@@ -27,6 +27,12 @@ cflags all -I vendor/postgresql/src/common
 # records which `strerror_r` that gave it. Without the flag glibc hands back
 # the XSI variant and src/port/strerror.c does not compile at all.
 cflags linux -D_GNU_SOURCE
+
+# The checked-in Linux configurations were generated on glibc. A musl type
+# check does not validate vendored C; refuse compilation until separately
+# configured headers and source selection have been proved on musl.
+cflags x86_64-unknown-linux-musl -DBEANS_POSTGRES_UNCONFIGURED_LIBC
+cflags aarch64-unknown-linux-musl -DBEANS_POSTGRES_UNCONFIGURED_LIBC
 
 # src/common/pg_prng.c carries a Gaussian generator libpq never calls, and the
 # whole object comes in with the symbols it needs. glibc keeps sin/log/sqrt in

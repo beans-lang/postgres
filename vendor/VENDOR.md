@@ -6,7 +6,7 @@
 | source | https://ftp.postgresql.org/pub/source/v18.0/postgresql-18.0.tar.bz2 |
 | archive SHA-256 | `0d5b903b1e5fe361bca7aa9507519933773eb34266b1357c4e7780fdee6d6078` |
 | licence | PostgreSQL License (BSD-style) — `postgresql/COPYRIGHT` |
-| vendored | 44 `.c` files and 51 headers, at their upstream paths, plus 6 generated headers under `config/` |
+| vendored | 44 `.c` files and 51 headers, at their upstream paths, plus 12 generated headers under `config/` |
 
 ## Inventory
 
@@ -53,13 +53,34 @@ make -C src/port pg_config_paths.h
 |---|---|
 | `config/macos-arm64/` | macOS 15, Apple clang, arm64 |
 | `config/linux-aarch64/` | Ubuntu 24.04 in Docker, clang 18, aarch64 |
+| `config/linux-x86_64/` | Ubuntu 24.04 in Docker linux/amd64 emulation, clang 18.1.3, glibc; configure executed its probes (`cross compiling... no`) |
+| `config/macos-x86_64/` | macOS 26, Apple clang 21 `-arch x86_64`, executed probes under Rosetta with x86_64 build/host (`cross compiling... no`) |
 
-`config/macos-x86_64/`, `config/linux-x86_64/` and `config/windows-x86_64/`
-are **named by the relay headers but not yet committed**. Building for one of
-those targets stops at `#error "no committed postgres configuration for this
-platform"`, which is the honest answer: a configuration guessed from another
-machine is a silent miscompile waiting to happen. Producing one is a
-`configure` run on that platform and a `cp`.
+The two x86_64 configurations were generated from the exact pinned archive,
+then the selected vendored C units were compiled, linked, and executed with a
+libpq caller on each target. Both callers authenticated to PostgreSQL 18 and
+returned `SELECT 42` (client 18.0, server 18.6). Linux x86_64 additionally passed
+all four native Beans suites with the published 0.1.50 compiler. Its interpreter
+cannot resolve `beans_fiber_wait_io` in that release. A rebuilt **unreleased
+0.1.51 / ABI 22** compiler then passed `./test.sh --native` on Linux glibc
+x86_64: vendor integrity, platform selectors, all four real-server interpreter
+suites, two target checks, `postgres_di`, and all four native suites against
+the same goldens. This was executed under Docker linux/amd64 emulation on
+Ubuntu 24.04 with clang 18.1.3 and PostgreSQL 18.6. Beans does not recognize
+`x86_64-apple-darwin` as a target, so Rosetta C evidence is not Beans acceptance.
+
+Reproduce generation with `bash tools/configure_platform.sh <platform>` on a
+matching machine or container. It verifies the archive checksum, requires
+executed configure probes, and copies only the three generated outputs.
+macOS x86_64 on ARM64 needs working Rosetta. Linux generation requires glibc:
+the current Linux directories must never be silently reused for musl.
+
+Windows remains unconfigured and refused by the relays. Its port needs the
+upstream Windows replacement sources, manifest source/system-library selection,
+configuration from an actual Windows toolchain, and native connection/query
+tests. Three generated headers alone would not make it work. Unknown Linux
+architectures are also refused rather than inheriting x86_64 configuration.
+Apple selection explicitly requires macOS; iOS cannot inherit macOS headers.
 
 ### Exclusions, each with its reason
 
