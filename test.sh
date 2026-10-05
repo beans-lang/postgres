@@ -3,7 +3,9 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")" && pwd)
 
-if [[ -z ${BEANS_ROOT:-} && -x "$ROOT/../../beans/build/beansc" ]]; then
+if [[ -z ${BEANS_ROOT:-} && -x "$ROOT/../beans/build/beansc" ]]; then
+    BEANS_ROOT=$(cd "$ROOT/../beans" && pwd)
+elif [[ -z ${BEANS_ROOT:-} && -x "$ROOT/../../beans/build/beansc" ]]; then
     BEANS_ROOT=$(cd "$ROOT/../../beans" && pwd)
 fi
 if [[ -z ${BEANSC:-} ]]; then
@@ -43,10 +45,11 @@ grep -q "beans relay header — NOT upstream" \
     "$ROOT/vendor/postgresql/src/port/pg_config_paths.h" \
     || { echo "vendor/postgresql/src/port/pg_config_paths.h lost its relay marker" >&2; exit 1; }
 
-# Every platform the relay headers name must have its three generated files.
+# Every committed configuration selected by the relays needs three headers.
 # A hard failure, never a skip: a gate that skips on a missing input dies
 # silently the moment the layout moves.
-for platform in macos-arm64 linux-aarch64; do
+platforms=(macos-arm64 macos-x86_64 linux-aarch64 linux-x86_64)
+for platform in "${platforms[@]}"; do
     for h in pg_config.h pg_config_os.h pg_config_paths.h; do
         [[ -f "$ROOT/vendor/postgresql/config/$platform/$h" ]] \
             || { echo "vendor/postgresql/config/$platform/$h is missing" >&2; exit 1; }
@@ -60,7 +63,8 @@ while read -r file; do
 done < <(grep '^csrc ' "$ROOT/beans.pot" | sed 's/.*"\(.*\)"/\1/')
 [[ $missing -eq 0 ]] || exit 1
 rows=$(grep -c '^csrc ' "$ROOT/beans.pot")
-echo "ok vendor integrity: $rows csrc rows, relay markers intact, 2 platform configs"
+echo "ok vendor integrity: $rows csrc rows, relay markers intact, ${#platforms[@]} platform configs"
+bash "$ROOT/tests/platform_config.sh"
 
 # ---- suites ------------------------------------------------------------------
 suites=(smoke crud notify pool)

@@ -18,7 +18,7 @@ io.println(rows.row(0).text("email"))
 ```
 
 No system libpq to install, no `make` step, no prebuilt binary. The C compiles
-with your program, for whatever target you build.
+with your program on the configured platforms below.
 
 ---
 
@@ -30,6 +30,9 @@ require github.com/beans-lang/postgres v0.1.0
 require github.com/beans-lang/dbcore v0.1.0
 ```
 
+The platform configuration and selector changes described below are unreleased
+checkout changes; the published `v0.1.0` package does not include them.
+
 Working inside the `beans-lang` workspace instead of from a published tag?
 These four packages depend on each other by path there, which is what their
 own `beans.pot` files use:
@@ -38,9 +41,14 @@ own `beans.pot` files use:
 require path "../dbcore"
 ```
 
-Needs **beansc 0.1.46 or newer**. Four `cflags` rows here name a directory
+Native builds need **beansc 0.1.46 or newer**. Four `cflags` rows name directories
 inside this package, and before 0.1.46 a relative include path resolved
 against the build's working directory instead — so libpq would not compile.
+On Linux, the interpreter needs the **unreleased 0.1.51 checkout's**
+hosted-registry fix for `beans_fiber_wait_io`; the published 0.1.50 interpreter
+cannot resolve that runtime function. Both backends passed with the rebuilt
+0.1.51 / ABI 22 Linux
+compiler; native Linux 0.1.50 execution was tested separately.
 
 Needs a C compiler — which `beansc` already needs for any native build, and
 also under `beansc run`, where the vendored C is compiled once into a cached
@@ -49,12 +57,18 @@ shared library.
 | platform | state |
 |---|---|
 | macOS arm64 | **supported**, tested against `postgres:18` |
-| Linux aarch64 | **supported**, tested against `postgres:18` |
-| Linux x86_64, macOS x86_64, Windows | needs a committed `configure` output — see `vendor/VENDOR.md` |
+| Linux aarch64 (glibc) | existing configuration and prior PostgreSQL 18 test record; this 0.1.51 verification did not rerun aarch64 |
+| Linux x86_64 (glibc) | both backends tested with unreleased Beans 0.1.51 / ABI 22 against `postgres:18`; four suites match the same goldens |
+| macOS x86_64 | generated configuration; vendored C authenticated and queried under Rosetta; Beans has no macOS x86_64 target |
+| Linux musl | no validated musl configuration; C compilation refuses rather than reusing glibc headers |
+| Windows | incomplete port: configuration, Windows C sources and link selection need validation |
 
-A platform with no committed configuration stops at a `#error` naming it. That
-is deliberate: a `pg_config.h` guessed from another machine is a silent
-miscompile, and adding one is a `configure` run and a `cp`.
+A platform without validated configuration stops at a `#error` naming it.
+Relays match both OS and architecture; an unknown architecture never inherits
+x86_64 headers, and iOS never inherits macOS headers. Type checking alone does
+not compile vendored C. See
+`vendor/VENDOR.md` and `tools/configure_platform.sh` for reproducible generation.
+Windows also needs platform-specific sources and native integration tests.
 
 ---
 
@@ -323,8 +337,10 @@ docker run -d --name beans_db_pg -p 55432:5432 \
 
 Four suites, both backends against the same golden files. Before them, a
 vendor-integrity step: every relay header still carries its marker, every
-platform the relay headers name has its three generated files, and every
+configured platform has its three generated files, and every
 `csrc` row names a file that exists — **hard failures, never skips**.
+The C preprocessing gate checks four configured triples and refusal of six
+unconfigured triples plus both supported-architecture musl triples.
 
 A missing server is a hard failure too. It skips only when
 `BEANS_DB_ALLOW_SKIP=1` is set on purpose, and a skipping run says plainly
